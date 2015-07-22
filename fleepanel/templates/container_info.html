@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %} 控制面板 {% endblock %}
+
+{% block stylesheet %}
+<style type="text/css">
+table.highlight-first-col td:first-child {
+  font-weight: bold;
+  text-align: center;
+}
+
+h2, h3 {
+  font-family: monospace;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<p style="display: none;">{{ state }}</p>
+
+<div class="row">
+  <div class="col-sm-9 col-sm-offset-1">
+    <h2>{{ container.name }} (<a href="{% url 'list' %}">{{ user }}</a>)</h2>
+    <table class="table highlight-first-col">
+      <tr>
+        <td>状态</td>
+        <td>{{ state.status }}</td>
+      </tr>
+      <tr>
+        <td>节点</td>
+        <td>{{ container.node }}</td>
+      </tr>
+      <tr>
+        <td>IP 地址</td>
+        <td>
+          {{ container.ip4 }}
+        </td>
+      </tr>
+      <tr>
+        <td>创建于</td>
+        <td>
+          {{ container.created | date:'Y-m-d H:i:s.u'}}
+        </td>
+      </tr>
+      <tr>
+        <td>操作</td>
+        <td>
+          <button type="button" class="btn btn-default btn-xs" onclick="action('start')">Start</button>
+          <button type="button" class="btn btn-default btn-xs" onclick="action('stop')">Stop</button>
+          <button type="button" class="btn btn-default btn-xs" onclick="action('force-stop')">Force Stop</button>
+          <button type="button" class="btn btn-default btn-xs" onclick="action('restart')">Restart</button>
+          <button type="button" class="btn btn-default btn-xs" onclick="delete_container()">Delete</button>
+        </td>
+      </tr>
+    </table>
+
+    <h3>操作记录</h3>
+    <table class="table">
+      <tr>
+        <th>操作时间</th>
+        <th>类型</th>
+        <th>状态</th>
+      </tr>
+      {% for op in operation_list %}
+      <tr>
+        <td>{{ op.created | date:'Y-m-d H:i:s.u' }}</td>
+        <td>{{ op.what.upper }}</td>
+        <td>{{ op.status_str }}</td>
+      </tr>
+      {% empty %}
+      <tr class="active">
+        <td colspan=3>没有操作记录</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script type="text/javascript">
+function action (c)
+{
+  if (!confirm("请确认您要执行的操作：" + c)) {
+    return;
+  }
+  xmlhttp = new XMLHttpRequest();
+  xmlhttp.open("POST", "{% url 'action' container.id %}", false);
+  xmlhttp.setRequestHeader("Content-type","text/plain");
+  xmlhttp.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+  xmlhttp.send(c);
+  location.reload();
+}
+
+function delete_container (c)
+{
+  if (!confirm("真的要删除虚拟机 {{ container.name }} 吗？")) {
+    return;
+  }
+  xmlhttp = new XMLHttpRequest();
+  xmlhttp.open("POST", "{% url 'delete' container.id %}", false);
+  xmlhttp.setRequestHeader("Content-type","text/plain");
+  xmlhttp.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+  xmlhttp.send(c);
+  window.location.href = "{% url 'list' %}";
+}
+</script>
+{% endblock %}

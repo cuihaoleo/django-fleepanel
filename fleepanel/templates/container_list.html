@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %} 虚拟机列表 {% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-sm-8 col-sm-offset-2">
+    <h3>Hi, {{ user.username }}</h3>
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>节点</th>
+          <th>主机名</th>
+          <th>运行状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for container in container_list %}
+        <tr>
+          <th><a href="{% url 'info' container.id %}">{{ container.id }}</a></th>
+          <td>{{container.node.name}}</td>
+          <td><a href="{% url 'info' container.id %}">{{ container.name }}</a></td>
+          {% if container.container_state %}
+            <td>{{container.container_state.status.lower | capfirst}}</td>
+          {% else %}
+            <td>Non-exist</td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr class="active">
+          <td colspan=4>没有任何虚拟机</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <button type="button" class="btn btn-info btn-lg" data-toggle="modal" data-target="#createContainer">新建虚拟机</button>
+  </div>
+</div>
+
+<div id="createContainer" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">配置新虚拟机</h4>
+      </div>
+      <div class="modal-body">
+        <form class="form-horizontal" id="createContainer">
+          <div class="form-group">
+            <label for="textHostname" class="col-sm-3 control-label">主机名</label>
+            <div class="col-sm-9">
+              <input type="text" class="form-control" id="textHostname" name="hostname" placeholder="Hostname">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="textRootPasswd" class="col-sm-3 control-label">管理员密码</label>
+            <div class="col-sm-9">
+              <input type="password" class="form-control" id="textRootPasswd" name="passwd" placeholder="Password">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="selNode" class="col-sm-3 control-label">节点</label>
+            <div class="col-sm-9">
+              <select id="selNode" name="node" class="form-control">
+                {% for node in node_list %}
+                <option value="{{node.id}}">{{node}}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="selTemplate" class="col-sm-3 control-label">模板</label>
+            <div class="col-sm-9">
+              <select id="selTemplate" name="template" class="form-control">
+                {% for template in template_list %}
+                <option value="{{template.id}}">{{template.name}}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <span style="float: left;" id="createProgress"></span>
+        <button type="button" class="btn btn-default" onclick="create_container()">新建</button>
+        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script type="text/javascript">
+function create_container () {
+  $("#createProgress").val("");
+
+  if ($("#textHostname").val() == "") {
+    $("#createProgress").text("主机名不能为空");
+    return;
+  }
+  else if ($("#textRootPasswd").val() == "") {
+    $("#createProgress").text("管理员密码不能为空");
+    return;
+  }
+
+  $.ajax({
+    method: "POST",
+    url: '{% url 'create' %}',
+    data: $('form#createContainer').serialize(),
+    headers: { "X-CSRFToken": "{{ csrf_token }}" },
+    success: function(data) {
+      var parsed = JSON.parse(data);
+
+      if (parsed.error) {
+        if (parsed.error == "DBError") {
+          $("#createProgress").text("主机名已被占用");
+        }
+        else {
+          $("#createProgress").text("后端未知错误：" + parsed.error);
+        }
+      } else {
+        location.reload();
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

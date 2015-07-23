@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -23,10 +22,10 @@ class UserProfile (models.Model):
     container_limit = models.PositiveIntegerField()
     cpus_limit = models.PositiveIntegerField()
     memory_mb_limit = models.PositiveIntegerField()
-    disk_mb_limit = models.PositiveIntegerField() # current no use
+    disk_mb_limit = models.PositiveIntegerField()  # current no use
     expire_second = models.DurationField()
 
-    def save (self, *args, **kwargs):
+    def save(self, *args, **kwargs):
         if not self.container_limit:
             self.container_limit = CONFIG["user_container_limit"]
         if not self.cpus_limit:
@@ -37,7 +36,7 @@ class UserProfile (models.Model):
             self.disk_mb_limit = CONFIG["user_disk_mb_limit"]
         if not self.expire_second:
             self.expire_second = timedelta(
-                                    seconds = CONFIG["user_expire_second"])
+                                     seconds=CONFIG["user_expire_second"])
         super(UserProfile, self).save(*args, **kwargs)
 
 
@@ -45,11 +44,11 @@ class IP4 (models.Model):
 
     ip4 = models.GenericIPAddressField(protocol="IPv4", unique=True)
 
-    def __str__ (self):
+    def __str__(self):
         return str(self.ip4)
 
     @classmethod
-    def allocate_ip4 (cls, cidr):
+    def allocate_ip4(cls, cidr):
         it = iter(cidr)
         next(it)
 
@@ -78,10 +77,10 @@ class Node (models.Model):
         ]
     )
 
-    def __str__ (self):
+    def __str__(self):
         return "%s <%s>" % (self.name, self.url)
 
-    def api (self, method, url, **kwargs):
+    def api(self, method, url, **kwargs):
 
         s = requests.Session()
         s.cert = (
@@ -102,10 +101,10 @@ class Node (models.Model):
         d = res.json()
         s.close()
 
-        return d 
+        return d
 
     @property
-    def cidr (self):
+    def cidr(self):
         return ipaddress.IPv4Network(
                 "%s/%d" % (self.gw4, self.nm4), strict=False)
 
@@ -117,14 +116,13 @@ class Template (models.Model):
     node = models.ForeignKey(Node)
 
     @property
-    def source_dict (self):
+    def source_dict(self):
         return {
              "type": "image",
              "mode": "pull",
              "server": str(self.node.url),
              "fingerprint": self.fingerprint,
         }
-
 
 
 class Container (models.Model):
@@ -135,7 +133,7 @@ class Container (models.Model):
     userpro = models.ForeignKey(UserProfile)
     created = models.DateTimeField(auto_now_add=True)
 
-    def create_container (self, passwd, template, cpus=1, mem=128):
+    def create_container(self, passwd, template, cpus=1, mem=128):
         if not self.ip4:
             ip4 = IP4.allocate_ip4(self.node.cidr)
             if ip4:
@@ -151,8 +149,8 @@ class Container (models.Model):
                 "limits.memory": "{:d}m".format(mem),
                 "user.gw4": str(self.node.gw4),
                 "user.ip4": str(self.ip4),
-                "user.passwd": 
-                    crypt.crypt(passwd, "$6$%04x" % random.randint(0,0xffff)),
+                "user.passwd":
+                    crypt.crypt(passwd, "$6$%04x" % random.randint(0, 0xffff)),
             },
             "source": template.source_dict,
         })
@@ -160,13 +158,13 @@ class Container (models.Model):
 
         # need to handle error properly
         return "error" not in r
-    
+
     @property
-    def container_state (self):
+    def container_state(self):
         r = self.node.api("GET", "1.0/containers/%s/state" % self.name)
         return r.get("metadata", {})
 
-    def do_action (self, action, force = False, log = True):
+    def do_action(self, action, force=False, log=True):
         data = json.dumps({
             "action": action,
             "timeout": 30,
@@ -178,32 +176,32 @@ class Container (models.Model):
         if 'error' not in r:
             uuid = r["operation"].rsplit('/', 1)[-1]
             op = Operation(
-                    uuid = uuid,
-                    what = ("", "force-")[force] + action,
-                    container = self if log else None
+                    uuid=uuid,
+                    what=("", "force-")[force] + action,
+                    container=(None, self)[log]
                  )
             op.save()
             return op.status_str
         else:
             return None
 
-    def delete_container (self, log = True):
+    def delete_container(self, log=True):
         # 唔，lxc 有点 bug，删除容器还有些问题
         r = self.node.api("DELETE", "1.0/containers/%s" % self.name)
 
         uuid = r["operation"].rsplit('/', 1)[-1]
         op = Operation(
-                uuid = uuid,
-                what = "delete",
-                container = self if log else None,
+                uuid=uuid,
+                what="delete",
+                container=(None, self)[log]
         )
         op.save()
- 
+
         return r
 
 
-@receiver(post_delete, sender = Container)
-def cleanup_after_container_deletion (sender, instance, using, **kwargs):
+@receiver(post_delete, sender=Container)
+def cleanup_after_container_deletion(sender, instance, using, **kwargs):
     if instance.container_state:
         instance.do_action("stop", True, log=False)
         instance.delete_container(log=False)
@@ -215,12 +213,12 @@ class Operation (models.Model):
     NOTFOUND_STATUS = 500
     uuid = models.UUIDField(primary_key=True, editable=False)
     what = models.CharField(max_length=10, blank=True)
-    container = models.ForeignKey(Container, editable=False,
-                    blank=True, null=True, on_delete=models.SET_NULL)
+    container = models.ForeignKey(Container, blank=True, null=True,
+                                  editable=False, on_delete=models.SET_NULL)
     status_code = models.PositiveSmallIntegerField(default=100)
     created = models.DateTimeField(auto_now_add=True)
 
-    def update_status (self):
+    def update_status(self):
         if not self.container:
             self.status_code = Operation.NOTFOUND_STATUS
             self.save(update_fields=["status_code"])
@@ -238,7 +236,7 @@ class Operation (models.Model):
         return r
 
     @property
-    def status_str (self):
+    def status_str(self):
         if self.status_code < 200:
             self.update_status()
 
@@ -255,4 +253,3 @@ class Operation (models.Model):
             Operation.NOTFOUND_STATUS: "None",
         }
         return d.get(self.status_code, "Unknown")
-

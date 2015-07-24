@@ -2,13 +2,10 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.template import RequestContext
 from django.views.decorators.http import require_GET, require_POST
-from django.http import HttpResponse, Http404, \
-                        HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, Http404, JsonResponse
 from .models import Container, Template, Node
-from django.db import IntegrityError
 from .forms import ContainerForm
-
-import json
+from django.db.models import Sum
 
 
 @require_GET
@@ -16,7 +13,19 @@ import json
 def container_list(request):
     userpro = request.user.userprofile
     container_list = userpro.container_set.all()
+
+    stats = container_list.aggregate(
+                cpus=Sum('cpus'),
+                memory_mb=Sum('memory_mb'),
+                disk_mb=Sum('disk_mb'))
+
+    left = {}
+    for key in stats:
+        left[key] = getattr(userpro, key) - stats[key]
+    left['count'] = userpro.container_limit - container_list.count()
+
     context = RequestContext(request, {
+        'left': left,
         'container_list': container_list,
         'userpro': userpro,
         'template_list': Template.objects.all(),

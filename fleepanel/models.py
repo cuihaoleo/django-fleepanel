@@ -20,9 +20,9 @@ class UserProfile (models.Model):
 
     user = models.OneToOneField(User)
     container_limit = models.PositiveIntegerField()
-    cpus_limit = models.PositiveIntegerField()
-    memory_mb_limit = models.PositiveIntegerField()
-    disk_mb_limit = models.PositiveIntegerField()  # current no use
+    cpus = models.PositiveIntegerField()
+    memory_mb = models.PositiveIntegerField()
+    disk_mb = models.PositiveIntegerField()  # current no use
     expire_second = models.DurationField()
 
     def save(self, *args, **kwargs):

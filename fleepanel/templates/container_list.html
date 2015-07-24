@@ -50,10 +50,15 @@
       </tbody>
     </table>
 
-    <button type="button" class="btn btn-info btn-lg" data-toggle="modal" data-target="#createContainer">新建虚拟机</button>
+    {% if left.count > 0 %}
+      <button type="button" class="btn btn-info btn-lg" data-toggle="modal" data-target="#createContainer">新建虚拟机</button>
+    {% else %}
+      <button type="button" class="btn btn-info btn-lg" disabled="disabled">配额用尽</button>
+    {% endif %}
   </div>
 </div>
 
+{% if left.count > 0 %}
 <div id="createContainer" class="modal fade" role="dialog">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -71,7 +76,17 @@
               {{ field.label }}
             </label>
             <div class="col-sm-9">
+              {% if field.name in left %}
+              <div class="input-group">
+                {{field|addcss:"form-control"}}
+                <div class="input-group-addon">/
+                  <strong>{{ left|get_item:field.name }}</strong>
+                  {% if 'mb' in field.name %}MB{% else %}Cores{% endif %}
+                </div>
+              </div>
+              {% else %}
               {{field|addcss:"form-control"}}
+              {% endif %}
             </div>
           </div>
           {% endfor %}
@@ -85,6 +100,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block javascript %}

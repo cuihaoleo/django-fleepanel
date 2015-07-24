@@ -136,7 +136,7 @@ class Container (models.Model):
     node = models.ForeignKey(Node)
     userpro = models.ForeignKey(UserProfile)
     created = models.DateTimeField(auto_now_add=True)
-    
+   
     cpus = models.PositiveIntegerField(verbose_name="CPU")
     memory_mb = models.PositiveIntegerField(verbose_name="Memory (MB)")
     disk_mb = models.PositiveIntegerField(verbose_name="Storage (MB)")
@@ -152,6 +152,7 @@ class Container (models.Model):
 
         data = json.dumps({
             "name": self.name,
+            "profiles": ["default"],
             "config": {
                 "limits.cpus": str(self.cpus),
                 "limits.memory": "{:d}m".format(self.memory_mb),
@@ -167,15 +168,24 @@ class Container (models.Model):
         # need to handle error properly
         return "error" not in r
 
+    @property
+    def container_config(self):
+        r = self.node.api("GET", "1.0/containers/%s" % self.name)
+        return r.get("metadata", {})
+
     def apply_config(self):
-        data = json.dumps({
-            "config": {
-                "limits.cpus": str(self.cpus),
-                "limits.memory": "{:d}m".format(self.memory_mb),
-                "user.gw4": str(self.node.gw4),
-                "user.ip4": str(self.ip4),
-            },
+        conf = self.container_config
+        newconf = {
+            "config": conf.get("config", {}),
+            "profiles": ["default"],
+        }
+        newconf["config"].update({
+            "limits.cpus": str(self.cpus),
+            "limits.memory": "{:d}m".format(self.memory_mb),
+            "user.gw4": str(self.node.gw4),
+            "user.ip4": str(self.ip4),
         })
+        data = json.dumps(newconf)
         r = self.node.api("PUT", "1.0/containers/%s" % self.name, data=data)
         return r
 

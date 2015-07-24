@@ -60,33 +60,6 @@ def container_action(request, pk):
 
 @login_required
 @require_POST
-def create_container_orig(request):
-    if not all(request.POST.get(k)
-               for k in ("hostname", "node", "template", "passwd",
-                         "cpu", "memory", "disk")):
-        return HttpResponseBadRequest(json.dumps(request.POST))
-
-    userpro = request.user.userprofile
-    con = Container(
-            name=request.POST["hostname"],
-            node=Node.objects.get(pk=request.POST["node"]),
-            userpro=userpro,
-          )
-
-    try:
-        con.save()
-    except IntegrityError:
-        return HttpResponse(json.dumps({"error": "DBError"}))
-
-    tpl = Template.objects.get(pk=request.POST["template"])
-    if con.create_container(passwd=request.POST["passwd"], template=tpl):
-        return HttpResponse(json.dumps({}))
-    else:
-        return HttpResponse(json.dumps({"error": "Something went wrong!"}))
-
-
-@login_required
-@require_POST
 def delete_container(request, pk):
     userpro = request.user.userprofile
     container = get_object_or_404(Container, pk=pk, userpro=userpro)

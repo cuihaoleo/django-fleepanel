@@ -1,3 +1,4 @@
+{% load fleepanel_tags %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -8,7 +9,10 @@
 <body>
   <main class="main" role="main">
     <div class="container">
-      {% block content %}{% endblock content %}
+      {% load fleepanel_tags %}
+      {% block content %}
+      {% load fleepanel_tags %}
+      {% endblock content %}
     </div>
   </main>
   <script src="//cdn.bootcss.com/jquery/1.11.3/jquery.min.js"></script>

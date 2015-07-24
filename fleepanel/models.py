@@ -115,6 +115,9 @@ class Template (models.Model):
     fingerprint = models.CharField(max_length=64)
     node = models.ForeignKey(Node)
 
+    def __str__(self):
+        return "%s <%s>" % (self.name, self.fingerprint)
+
     @property
     def source_dict(self):
         return {
@@ -127,13 +130,18 @@ class Template (models.Model):
 
 class Container (models.Model):
 
-    name = models.CharField(max_length=16, unique=True)
+    name = models.CharField(max_length=16, unique=True,
+                            verbose_name="Hostname")
     ip4 = models.OneToOneField(IP4, blank=True, null=True)
     node = models.ForeignKey(Node)
     userpro = models.ForeignKey(UserProfile)
     created = models.DateTimeField(auto_now_add=True)
+    
+    cpus = models.PositiveIntegerField(verbose_name="CPU")
+    memory_mb = models.PositiveIntegerField(verbose_name="Memory (MB)")
+    disk_mb = models.PositiveIntegerField(verbose_name="Storage (MB)")
 
-    def create_container(self, passwd, template, cpus=1, mem=128):
+    def create_container(self, passwd, template):
         if not self.ip4:
             ip4 = IP4.allocate_ip4(self.node.cidr)
             if ip4:
@@ -145,8 +153,8 @@ class Container (models.Model):
         data = json.dumps({
             "name": self.name,
             "config": {
-                "limits.cpus": str(cpus),
-                "limits.memory": "{:d}m".format(mem),
+                "limits.cpus": str(self.cpus),
+                "limits.memory": "{:d}m".format(self.memory_mb),
                 "user.gw4": str(self.node.gw4),
                 "user.ip4": str(self.ip4),
                 "user.passwd":
@@ -159,12 +167,26 @@ class Container (models.Model):
         # need to handle error properly
         return "error" not in r
 
+    def apply_config(self):
+        data = json.dumps({
+            "config": {
+                "limits.cpus": str(self.cpus),
+                "limits.memory": "{:d}m".format(self.memory_mb),
+                "user.gw4": str(self.node.gw4),
+                "user.ip4": str(self.ip4),
+            },
+        })
+        r = self.node.api("PUT", "1.0/containers/%s" % self.name, data=data)
+        return r
+
     @property
     def container_state(self):
         r = self.node.api("GET", "1.0/containers/%s/state" % self.name)
         return r.get("metadata", {})
 
     def do_action(self, action, force=False, log=True):
+        self.apply_config()  # 多 apply 几次也无妨
+
         data = json.dumps({
             "action": action,
             "timeout": 30,

@@ -2,9 +2,11 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.template import RequestContext
 from django.views.decorators.http import require_GET, require_POST
-from django.http import HttpResponse, Http404, HttpResponseBadRequest
+from django.http import HttpResponse, Http404, \
+                        HttpResponseBadRequest, JsonResponse
 from .models import Container, Template, Node
 from django.db import IntegrityError
+from .forms import ContainerForm
 
 import json
 
@@ -19,6 +21,7 @@ def container_list(request):
         'userpro': userpro,
         'template_list': Template.objects.all(),
         'node_list': Node.objects.filter(usable=True),
+        'form': ContainerForm()
     })
     return render(request, 'container_list.html', context)
 
@@ -57,9 +60,10 @@ def container_action(request, pk):
 
 @login_required
 @require_POST
-def create_container(request):
+def create_container_orig(request):
     if not all(request.POST.get(k)
-               for k in ("hostname", "node", "template", "passwd")):
+               for k in ("hostname", "node", "template", "passwd",
+                         "cpu", "memory", "disk")):
         return HttpResponseBadRequest(json.dumps(request.POST))
 
     userpro = request.user.userprofile
@@ -89,3 +93,35 @@ def delete_container(request, pk):
     # 以后再加点验证吧
     container.delete()
     return HttpResponse("bye~")
+
+
+@login_required
+@require_POST
+def create_container(request):
+    form = ContainerForm(request.POST)
+    if form.is_valid():
+        userpro = request.user.userprofile
+        con = form.save(commit=False)
+        con.userpro = userpro
+        con.save()
+
+        if con.create_container(passwd=form.cleaned_data["passwd"],
+                                template=form.cleaned_data["template"]):
+            return JsonResponse({"error": False})
+        else:
+            return JsonResponse({
+                "error": True,
+                "verbose": {
+                    "label": "Backend",
+                    "message": "Something went wrong :3",
+                },
+            })
+    else:
+        error_list = []
+        for fieldname, errors in form.errors.items():
+            error_list.append({
+                "id": form[fieldname].id_for_label,
+                "label": form[fieldname].label,
+                "message": ' '.join(errors),
+            })
+        return JsonResponse({"error": True, "verbose": error_list})

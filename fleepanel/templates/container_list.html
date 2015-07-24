@@ -2,6 +2,21 @@
 
 {% block title %} 虚拟机列表 {% endblock %}
 
+{% block stylesheet %}
+<style type="text/css">
+#createProgress {
+  float: left;
+  text-align: left;
+  line-height: 1.05;
+  font-size: 60%;
+}
+
+#createProgress .alert {
+  margin-bottom: 10px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row">
   <div class="col-sm-8 col-sm-offset-2">
@@ -47,43 +62,23 @@
         <h4 class="modal-title">配置新虚拟机</h4>
       </div>
       <div class="modal-body">
-        <form class="form-horizontal" id="createContainer">
+        <form id="createContainer" action="{% url 'create' %}" method="post" class="form-horizontal">
+          {% load fleepanel_tags %}
+          {% csrf_token %}
+          {% for field in form %}
           <div class="form-group">
-            <label for="textHostname" class="col-sm-3 control-label">主机名</label>
+            <label for="{{ field.id_for_label }}" class="col-sm-3 control-label">
+              {{ field.label }}
+            </label>
             <div class="col-sm-9">
-              <input type="text" class="form-control" id="textHostname" name="hostname" placeholder="Hostname">
+              {{field|addcss:"form-control"}}
             </div>
           </div>
-          <div class="form-group">
-            <label for="textRootPasswd" class="col-sm-3 control-label">管理员密码</label>
-            <div class="col-sm-9">
-              <input type="password" class="form-control" id="textRootPasswd" name="passwd" placeholder="Password">
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="selNode" class="col-sm-3 control-label">节点</label>
-            <div class="col-sm-9">
-              <select id="selNode" name="node" class="form-control">
-                {% for node in node_list %}
-                <option value="{{node.id}}">{{node}}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="selTemplate" class="col-sm-3 control-label">模板</label>
-            <div class="col-sm-9">
-              <select id="selTemplate" name="template" class="form-control">
-                {% for template in template_list %}
-                <option value="{{template.id}}">{{template.name}}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
+          {% endfor %}
         </form>
       </div>
       <div class="modal-footer">
-        <span style="float: left;" id="createProgress"></span>
+        <span id="createProgress"></span>
         <button type="button" class="btn btn-default" onclick="create_container()">新建</button>
         <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
       </div>
@@ -95,34 +90,35 @@
 {% block javascript %}
 <script type="text/javascript">
 function create_container () {
-  $("#createProgress").val("");
-
-  if ($("#textHostname").val() == "") {
-    $("#createProgress").text("主机名不能为空");
-    return;
-  }
-  else if ($("#textRootPasswd").val() == "") {
-    $("#createProgress").text("管理员密码不能为空");
-    return;
-  }
-
+  $("#createProgress").empty("");
   $.ajax({
     method: "POST",
     url: '{% url 'create' %}',
     data: $('form#createContainer').serialize(),
-    headers: { "X-CSRFToken": "{{ csrf_token }}" },
     success: function(data) {
-      var parsed = JSON.parse(data);
-
-      if (parsed.error) {
-        if (parsed.error == "DBError") {
-          $("#createProgress").text("主机名已被占用");
-        }
-        else {
-          $("#createProgress").text("后端未知错误：" + parsed.error);
-        }
-      } else {
-        location.reload();
+      if (data.error) {
+        data.verbose.forEach(function (elem) {
+          var div = $("<div>", {
+            "class": "alert alert-danger alert-dismissible",
+            "attr": { "role": "alert" }
+          });
+          var button = $("<button>",{
+            "class": "close",
+            "attr": {
+              "aria-label": "Close",
+              "data-dismiss": "alert"
+            }
+          });
+          button.append('<span aria-hidden="true">&times;</span>');
+          div.append(button);
+          div.append($("<strong>").text(elem.label + ": "));
+          div.append($("<span>").text(elem.message));
+          $("#createProgress").append(div);
+        });
+      }
+      else {
+        $("#createProgress").text("创建成功！");
+        setTimeout(function () {location.reload();}, 500);
       }
     }
   });

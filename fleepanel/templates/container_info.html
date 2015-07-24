@@ -43,6 +43,14 @@ h2, h3 {
         </td>
       </tr>
       <tr>
+        <td>配置</td>
+        <td>
+          <span class="label label-default">CPU x{{container.cpus}}</span>
+          <span class="label label-primary">内存 {{container.memory_mb}}MB</span>
+          <span class="label label-warning">数据 {{container.disk_mb}}MB</span>
+        </td>
+      </tr>
+      <tr>
         <td>操作</td>
         <td>
           <button type="button" class="btn btn-default btn-xs" onclick="action('start')">Start</button>

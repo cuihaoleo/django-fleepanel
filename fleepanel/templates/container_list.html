@@ -70,7 +70,7 @@
         <form id="createContainer" action="{% url 'create' %}" method="post" class="form-horizontal">
           {% load fleepanel_tags %}
           {% csrf_token %}
-          {% for field in form %}
+          {% for field in form %}{% if field.label %}
           <div class="form-group">
             <label for="{{ field.id_for_label }}" class="col-sm-3 control-label">
               {{ field.label }}
@@ -89,7 +89,7 @@
               {% endif %}
             </div>
           </div>
-          {% endfor %}
+          {% else %}{{field}}{% endif %}{% endfor %}
         </form>
       </div>
       <div class="modal-footer">

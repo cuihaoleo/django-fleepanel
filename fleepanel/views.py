@@ -2,7 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.template import RequestContext
 from django.views.decorators.http import require_GET, require_POST
-from django.http import HttpResponse, Http404, JsonResponse
+from django.http import HttpResponse, Http404, \
+                        JsonResponse, HttpResponseForbidden
 from .models import Container, Template, Node
 from .forms import ContainerForm
 from django.db.models import Sum
@@ -30,7 +31,7 @@ def container_list(request):
         'userpro': userpro,
         'template_list': Template.objects.all(),
         'node_list': Node.objects.filter(usable=True),
-        'form': ContainerForm()
+        'form': ContainerForm(initial={"userpro": userpro})
     })
     return render(request, 'container_list.html', context)
 
@@ -84,8 +85,11 @@ def create_container(request):
     if form.is_valid():
         userpro = request.user.userprofile
         con = form.save(commit=False)
-        con.userpro = userpro
-        con.save()
+
+        if con.userpro != userpro:
+            return HttpResponseForbidden("UserProfile not match.")
+        else:
+            con.save()
 
         if con.create_container(passwd=form.cleaned_data["passwd"],
                                 template=form.cleaned_data["template"]):

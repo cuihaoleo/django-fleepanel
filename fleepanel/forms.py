@@ -1,5 +1,5 @@
 from django import forms
-from .models import Container, Node, Template
+from .models import Container, Node, Template, UserProfile
 
 
 class ContainerForm(forms.ModelForm):
@@ -10,6 +10,10 @@ class ContainerForm(forms.ModelForm):
     passwd = forms.CharField(max_length=256, widget=forms.PasswordInput())
     passwd.label = "Admin Password"
 
+    userpro = forms.ModelChoiceField(queryset=UserProfile.objects.all(),
+                                     widget=forms.HiddenInput(),
+                                     label="")
+
     class Meta:
         model = Container
-        fields = ['name', 'node', 'cpus', 'memory_mb', 'disk_mb']
+        fields = ['name', 'node', 'cpus', 'memory_mb', 'disk_mb', 'userpro']

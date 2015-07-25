@@ -17,3 +17,14 @@ class ContainerForm(forms.ModelForm):
     class Meta:
         model = Container
         fields = ['name', 'node', 'cpus', 'memory_mb', 'disk_mb', 'userpro']
+
+    def clean(self):
+        cleaned_data = super(ContainerForm, self).clean()
+        userpro = cleaned_data.get("userpro")
+
+        if userpro:
+            for key, value in userpro.quota_stat.items():
+                # why default 1? Cause container_num should increase 1...
+                if cleaned_data.get(key, 1) + value > getattr(userpro, key):
+                    msg = "Quota exceed..."
+                    self.add_error(key, msg)

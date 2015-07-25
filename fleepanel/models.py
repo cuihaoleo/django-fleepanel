@@ -14,16 +14,27 @@ import crypt
 import os
 from urllib.parse import urljoin
 from datetime import timedelta
+from django.db.models import Sum
 
 
 class UserProfile (models.Model):
 
     user = models.OneToOneField(User)
-    container_limit = models.PositiveIntegerField()
+    container_num = models.PositiveIntegerField()
     cpus = models.PositiveIntegerField()
     memory_mb = models.PositiveIntegerField()
     disk_mb = models.PositiveIntegerField()  # current no use
     expire_second = models.DurationField()
+
+    @property
+    def quota_stat(self):
+        cset = self.container_set
+        stats = cset.aggregate(
+                 cpus=Sum('cpus'),
+                 memory_mb=Sum('memory_mb'),
+                 disk_mb=Sum('disk_mb'))
+        stats["container_num"] = cset.count()
+        return stats
 
     def save(self, *args, **kwargs):
         if not self.container_limit:

@@ -6,7 +6,6 @@ from django.http import HttpResponse, Http404, \
                         JsonResponse, HttpResponseForbidden
 from .models import Container, Template, Node
 from .forms import ContainerForm
-from django.db.models import Sum
 
 
 @require_GET
@@ -15,15 +14,10 @@ def container_list(request):
     userpro = request.user.userprofile
     container_list = userpro.container_set.all()
 
-    stats = container_list.aggregate(
-                cpus=Sum('cpus'),
-                memory_mb=Sum('memory_mb'),
-                disk_mb=Sum('disk_mb'))
-
+    stats = userpro.quota_stat
     left = {}
     for key in stats:
         left[key] = getattr(userpro, key) - stats[key]
-    left['count'] = userpro.container_limit - container_list.count()
 
     context = RequestContext(request, {
         'left': left,
@@ -105,9 +99,16 @@ def create_container(request):
     else:
         error_list = []
         for fieldname, errors in form.errors.items():
-            error_list.append({
-                "id": form[fieldname].id_for_label,
-                "label": form[fieldname].label,
-                "message": ' '.join(errors),
-            })
+            if fieldname != "__all__":
+                error_list.append({
+                    "id": form[fieldname].id_for_label,
+                    "label": form[fieldname].label,
+                    "message": ' '.join(errors),
+                })
+            else:
+                error_list.append({
+                    "label": "*",
+                    "message": ' '.join(errors),
+                })
+
         return JsonResponse({"error": True, "verbose": error_list})

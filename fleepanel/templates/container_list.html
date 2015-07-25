@@ -71,7 +71,10 @@
       </div>
       <div class="modal-body">
         <form id="createContainer" action="{% url 'create' %}" method="post" class="form-horizontal">
-          <p>你还可以创建 {{ left.container_num }} 个虚拟机（配额 {{ user.userprofile.container_num }}）</p>
+          <p>
+            你还可以创建 {{ left.container_num }} 个虚拟机
+            （剩余配额：CPU x{{left.cpus}}，内存 {{left.memory_mb}}MB，存储 {{left.disk_mb}}MB）
+          </p>
           {% load fleepanel_tags %}
           {% csrf_token %}
           {% for field in form %}{% if field.label %}
@@ -84,7 +87,7 @@
               <div class="input-group">
                 {{field|addcss:"form-control"}}
                 <div class="input-group-addon">/
-                  <strong>{{ left|get_item:field.name }}</strong>
+                  <strong id="limit_{{ field.id_for_label }}">{{ left|get_item:field.name }}</strong>
                   {% if 'mb' in field.name %}MB{% else %}Cores{% endif %}
                 </div>
               </div>
@@ -143,5 +146,31 @@ function create_container () {
     }
   });
 }
+
+var node_info=[{},
+{% for node in node_list %}
+  {
+    "memory_mb": {{ node.memory_mb }},
+    "disk_mb": {{ node.disk_mb }},
+    "cpus": {{ node.cpus }},
+  },
+{% endfor %}
+]
+
+function min (a, b) {
+  return a < b ? a : b;
+}
+
+$("#{{form.node.id_for_label}}").change(function () {
+  $("#limit_{{form.cpus.id_for_label}}").text(
+    min(node_info[$(this).val()].cpus, {{left.cpus}})
+  );
+  $("#limit_{{form.memory_mb.id_for_label}}").text(
+    min(node_info[$(this).val()].memory_mb, {{left.memory_mb}})
+  );
+  $("#limit_{{form.disk_mb.id_for_label}}").text(
+    min(node_info[$(this).val()].disk_mb, {{left.disk_mb}})
+  );
+}).change();
 </script>
 {% endblock %}

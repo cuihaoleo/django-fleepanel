@@ -95,6 +95,10 @@ class Node (models.Model):
         ]
     )
 
+    cpus = models.PositiveIntegerField()
+    memory_mb = models.PositiveIntegerField()
+    disk_mb = models.PositiveIntegerField()
+ 
     def __str__(self):
         return "%s <%s>" % (self.name, self.url)
 

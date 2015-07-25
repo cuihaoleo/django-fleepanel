@@ -13,6 +13,7 @@ from .forms import ContainerForm
 def container_list(request):
     userpro = request.user.userprofile
     container_list = userpro.container_set.all()
+    node_list = Node.objects.filter(usable=True)
 
     stats = userpro.quota_stat
     left = {}
@@ -23,6 +24,7 @@ def container_list(request):
         'left': left,
         'container_list': container_list,
         'userpro': userpro,
+        'node_list': node_list,
         'template_list': Template.objects.all(),
         'node_list': Node.objects.filter(usable=True),
         'form': ContainerForm(initial={"userpro": userpro})

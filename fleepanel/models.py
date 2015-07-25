@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from .settings import CONFIG
 
@@ -14,7 +16,6 @@ import crypt
 import os
 from urllib.parse import urljoin
 from datetime import timedelta
-from django.db.models import Sum
 
 
 class UserProfile (models.Model):
@@ -30,29 +31,35 @@ class UserProfile (models.Model):
     def quota_stat(self):
         cset = self.container_set
         stats = cset.aggregate(
-                 cpus=Sum('cpus'),
-                 memory_mb=Sum('memory_mb'),
-                 disk_mb=Sum('disk_mb'))
+                 cpus=Coalesce(Sum('cpus'), 0),
+                 memory_mb=Coalesce(Sum('memory_mb'), 0),
+                 disk_mb=Coalesce(Sum('disk_mb'), 0))
         stats["container_num"] = cset.count()
         return stats
 
     def save(self, *args, **kwargs):
-        if not self.container_limit:
-            self.container_limit = CONFIG["user_container_limit"]
-        if not self.cpus_limit:
-            self.cpus_limit = CONFIG["user_cpus_limit"]
-        if not self.memory_mb_limit:
-            self.memory_mb_limit = CONFIG["user_memory_mb_limit"]
-        if not self.disk_mb_limit:
-            self.disk_mb_limit = CONFIG["user_disk_mb_limit"]
+        if not self.container_num:
+            self.container_num = CONFIG["user_container_num"]
+        if not self.cpus:
+            self.cpus = CONFIG["user_cpus"]
+        if not self.memory_mb:
+            self.memory_mb = CONFIG["user_memory_mb"]
+        if not self.disk_mb:
+            self.disk_mb = CONFIG["user_disk_mb"]
         if not self.expire_second:
             self.expire_second = timedelta(
                                      seconds=CONFIG["user_expire_second"])
         super(UserProfile, self).save(*args, **kwargs)
 
 
-class IP4 (models.Model):
+@receiver(post_save, sender=User)
+def create_userprofile(sender, instance, using, **kwargs):
+    if not UserProfile.objects.filter(user=instance):
+        userpro = UserProfile(user=instance)
+        userpro.save()
 
+
+class IP4 (models.Model):
     ip4 = models.GenericIPAddressField(protocol="IPv4", unique=True)
 
     def __str__(self):
@@ -61,7 +68,7 @@ class IP4 (models.Model):
     @classmethod
     def allocate_ip4(cls, cidr):
         it = iter(cidr)
-        next(it)
+        next(it)  # skip first IP representing network
 
         for ip in it:
             if not cls.objects.filter(ip4=str(ip)).exists():
@@ -147,7 +154,7 @@ class Container (models.Model):
     node = models.ForeignKey(Node)
     userpro = models.ForeignKey(UserProfile)
     created = models.DateTimeField(auto_now_add=True)
-   
+
     cpus = models.PositiveIntegerField(verbose_name="CPU")
     memory_mb = models.PositiveIntegerField(verbose_name="Memory (MB)")
     disk_mb = models.PositiveIntegerField(verbose_name="Storage (MB)")

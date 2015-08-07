@@ -8,7 +8,7 @@
 set -e
 LC_ALL=C
 
-btrfs subvol list -o /var/lib/lxd/lxc/bt1 \
+btrfs subvol list -o "$LXC_ROOTFS_PATH" \
 | cut -d@ -f2 \
 | while read path; do
     if [[ "$path" == "$LXC_ROOTFS_PATH"?* ]]; then

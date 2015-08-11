@@ -283,8 +283,8 @@ class Operation (models.Model):
 
         if r.get("error_code") == 404:
             self.status_code = Operation.NOTFOUND_STATUS
-        elif "status_code" in r:
-            self.status_code = r["status_code"]
+        elif "metadata" in r:
+            self.status_code = r["metadata"].get("status_code", 0)
 
         self.save(update_fields=["status_code"])
         return r
